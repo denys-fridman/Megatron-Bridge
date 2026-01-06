@@ -251,6 +251,14 @@ class MoELayer(BaseMoELayer):
         dispatched_input, tokens_per_expert, permuted_probs = (
             self.token_dispatcher.dispatch_postprocess(hidden_states, probs)
         )
+        from megatron.training.utils import is_last_rank
+        if is_last_rank():
+            print(f"tokens_per_expert.shape: {tokens_per_expert.shape}")
+            print(f"tokens_per_expert: {tokens_per_expert}")
+            print(f"tokens_per_expert.sum(): {tokens_per_expert.sum()}")
+            print(f"tokens_per_expert.min(): {tokens_per_expert.min()}")
+            print(f"tokens_per_expert.max(): {tokens_per_expert.max()}")
+            print(f"tokens_per_expert.mean(): {tokens_per_expert.mean()}")
         expert_output, mlp_bias = self.experts(dispatched_input, tokens_per_expert, permuted_probs)
         assert mlp_bias is None, f"mlp_bias is not supported for {type(self.token_dispatcher)}"
         output = self.token_dispatcher.combine_preprocess(expert_output)
