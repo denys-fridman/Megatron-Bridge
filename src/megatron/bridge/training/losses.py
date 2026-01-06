@@ -18,6 +18,8 @@ from typing import Tuple
 import torch
 from megatron.core.rerun_state_machine import get_rerun_state_machine
 
+from megatron.training.utils import is_last_rank
+
 
 SPIKY_LOSS_FACTOR: int = 10
 
@@ -65,7 +67,12 @@ def masked_next_token_loss(
     else:
         losses = output_tensor.view(-1).float()
     loss_mask = loss_mask.view(-1).float()
+    if is_last_rank():
+        print(f"losses: {losses}")
+        print(f"loss_mask: {loss_mask}")
     loss = torch.sum(losses * loss_mask)
+    if is_last_rank():
+        print(f"loss: {loss}")
 
     # Check individual rank losses are not NaN prior to DP all-reduce.
     rerun_state_machine = get_rerun_state_machine()
