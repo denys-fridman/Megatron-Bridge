@@ -767,6 +767,9 @@ class MegatronModelBridge(Generic[HFPreTrained, ModelProviderTarget, MegatronMod
         description = f"Loading from {hf_pretrained.model_name_or_path}"
         for task in self._with_progress_tracking(hf_to_megatron_tasks, description):
             # None means megatron module not on current rank, skip if this task is not going to happen
+            if task is None:
+                print("None task. Skipping")
+                continue
             if task.megatron_module is None:
                 continue
             # 1) Fetch source tensor(s) from HF state dict
@@ -1403,6 +1406,7 @@ class MegatronModelBridge(Generic[HFPreTrained, ModelProviderTarget, MegatronMod
                 mapping = mapping_registry.megatron_to_hf_lookup(self._get_lora_unwrapped_name(global_name))
                 # Skip tasks with no mapping found
                 if mapping is None:
+                    print(f"Skipping conversion of {global_name}")
                     continue
                 # This is an exception here we pass in global name
                 # we are not using global_name to extract module and weights

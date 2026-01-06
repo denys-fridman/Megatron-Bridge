@@ -65,6 +65,7 @@ def main(
     output_dir: str = None,
     tp: int = 1,
     pp: int = 1,
+    vp: int | None = None,
     ep: int = 1,
     etp: int = 1,
     megatron_save_path: str | None = None,
@@ -97,6 +98,7 @@ def main(
         model_provider = bridge.to_megatron_provider(load_weights=False)
         model_provider.tensor_model_parallel_size = tp
         model_provider.pipeline_model_parallel_size = pp
+        model_provider.virtual_pipeline_model_parallel_size = vp
         model_provider.pipeline_dtype = torch.bfloat16
         model_provider.params_dtype = torch.bfloat16
         model_provider.expert_model_parallel_size = ep
@@ -123,11 +125,27 @@ def main(
         model_provider = bridge.to_megatron_provider(load_weights=True)
         model_provider.tensor_model_parallel_size = tp
         model_provider.pipeline_model_parallel_size = pp
+        model_provider.virtual_pipeline_model_parallel_size = vp
         model_provider.pipeline_dtype = torch.bfloat16
         model_provider.params_dtype = torch.bfloat16
         model_provider.expert_model_parallel_size = ep
         model_provider.expert_tensor_parallel_size = etp
-
+        # model_provider.pipeline_model_parallel_layout = [['embedding', 'decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'decoder', 'decoder', 'decoder'],
+        #                                                  ['decoder', 'mtp', 'loss']]
         # Once all overrides are set, finalize the model provider to ensure the post initialization logic is run
         model_provider.finalize()
         model_provider.initialize_model_parallel(seed=0)
@@ -155,8 +173,9 @@ def main(
         if is_rank_0:
             original_param = bridge.hf_pretrained.state[name]
             match = torch.allclose(
-                param, original_param.to(param.device), atol=1e-1
+                param, original_param.to(dtype=param.dtype, device=param.device), atol=1e-1
             )  # Increased tolerance for bfloat16
+            print(f"Params match for {name}: {match}")
             table.add_row(
                 name,
                 str(tuple(param.shape)),
@@ -169,13 +188,13 @@ def main(
         console.print(table)
         console.print(f"Saving HF-ckpt in {save_path}...")
 
-    bridge.save_hf_pretrained(megatron_model, save_path, strict=strict)
+    # bridge.save_hf_pretrained(megatron_model, save_path, strict=strict)
 
     # Save in Megatron format if path is provided
-    if megatron_save_path:
-        if is_rank_0:
-            console.print(f"Saving Megatron checkpoint in {megatron_save_path}...")
-        bridge.save_megatron_model(megatron_model, megatron_save_path)
+    # if megatron_save_path:
+    #     if is_rank_0:
+    #         console.print(f"Saving Megatron checkpoint in {megatron_save_path}...")
+    #     bridge.save_megatron_model(megatron_model, megatron_save_path)
 
 
 if __name__ == "__main__":
@@ -191,6 +210,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--tp", type=int, default=1, help="Tensor parallelism size")
     parser.add_argument("--pp", type=int, default=1, help="Pipeline parallelism size")
+    parser.add_argument("--vp", type=int, default=None, help="Virtual pipeline parallelism size")
     parser.add_argument("--ep", type=int, default=1, help="Expert parallelism size")
     parser.add_argument("--etp", type=int, default=1, help="Expert tensor parallelism size")
 
@@ -214,6 +234,7 @@ if __name__ == "__main__":
         args.output_dir,
         args.tp,
         args.pp,
+        args.vp,
         args.ep,
         args.etp,
         args.megatron_save_path,
