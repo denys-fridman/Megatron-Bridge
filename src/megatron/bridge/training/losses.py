@@ -68,7 +68,10 @@ def masked_next_token_loss(
         losses = output_tensor.view(-1).float()
     loss_mask = loss_mask.view(-1).float()
     if is_last_rank():
+        num_nans = torch.isnan(losses).sum().item()
         print(f"losses: {losses}")
+        print(f"losses.shape: {losses.shape}")
+        print(f"losses.num_nans: {num_nans}")
         print(f"loss_mask: {loss_mask}")
     loss = torch.sum(losses * loss_mask)
     if is_last_rank():
