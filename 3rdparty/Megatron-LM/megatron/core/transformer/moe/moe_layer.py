@@ -257,7 +257,6 @@ class MoELayer(BaseMoELayer):
             print(f"tokens_per_expert.sum(): {tokens_per_expert.sum()}")
             print(f"tokens_per_expert.min(): {tokens_per_expert.min()}")
             print(f"tokens_per_expert.max(): {tokens_per_expert.max()}")
-            print(f"tokens_per_expert.mean(): {tokens_per_expert.mean()}")
             print(f"tokens_per_expert: {tokens_per_expert.cpu().tolist()}")
         expert_output, mlp_bias = self.experts(dispatched_input, tokens_per_expert, permuted_probs)
         assert mlp_bias is None, f"mlp_bias is not supported for {type(self.token_dispatcher)}"
