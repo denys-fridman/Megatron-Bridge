@@ -54,6 +54,8 @@ from megatron.bridge import AutoBridge
 from megatron.bridge.models.decorators import torchrun_main
 from megatron.bridge.models.hf_pretrained.utils import is_safe_repo
 
+from megatron.bridge.recipes.deepseek.deepseek_v3 import set_deepseek_v3_pipeline_model_parallel_layout
+
 
 HF_MODEL_ID = "meta-llama/Llama-3.2-1B"
 console = Console()
@@ -73,6 +75,7 @@ def main(
     output_dir: str = None,
     tp: int = 1,
     pp: int = 1,
+    vp: int | None = None,
     ep: int = 1,
     etp: int = 1,
     megatron_save_path: str | None = None,
@@ -105,10 +108,13 @@ def main(
         model_provider = bridge.to_megatron_provider(load_weights=False)
         model_provider.tensor_model_parallel_size = tp
         model_provider.pipeline_model_parallel_size = pp
+        model_provider.virtual_pipeline_model_parallel_size = vp
         model_provider.pipeline_dtype = torch.bfloat16
         model_provider.params_dtype = torch.bfloat16
         model_provider.expert_model_parallel_size = ep
         model_provider.expert_tensor_parallel_size = etp
+
+        set_deepseek_v3_pipeline_model_parallel_layout(model_provider)
 
         # Once all overrides are set, finalize the model provider to ensure the post initialization logic is run
         model_provider.finalize()
@@ -118,6 +124,7 @@ def main(
             mp_overrides={
                 "tensor_model_parallel_size": tp,
                 "pipeline_model_parallel_size": pp,
+                "virtual_pipeline_model_parallel_size": vp,
                 "expert_model_parallel_size": ep,
                 "expert_tensor_parallel_size": etp,
                 "pipeline_dtype": torch.bfloat16,
@@ -131,10 +138,13 @@ def main(
         model_provider = bridge.to_megatron_provider(load_weights=True)
         model_provider.tensor_model_parallel_size = tp
         model_provider.pipeline_model_parallel_size = pp
+        model_provider.virtual_pipeline_model_parallel_size = vp
         model_provider.pipeline_dtype = torch.bfloat16
         model_provider.params_dtype = torch.bfloat16
         model_provider.expert_model_parallel_size = ep
         model_provider.expert_tensor_parallel_size = etp
+
+        set_deepseek_v3_pipeline_model_parallel_layout(model_provider)
 
         # Once all overrides are set, finalize the model provider to ensure the post initialization logic is run
         model_provider.finalize()
@@ -211,6 +221,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--tp", type=int, default=1, help="Tensor parallelism size")
     parser.add_argument("--pp", type=int, default=1, help="Pipeline parallelism size")
+    parser.add_argument("--vp", type=int, default=None, help="Virtual pipeline parallelism size")
     parser.add_argument("--ep", type=int, default=1, help="Expert parallelism size")
     parser.add_argument("--etp", type=int, default=1, help="Expert tensor parallelism size")
 
@@ -234,6 +245,7 @@ if __name__ == "__main__":
         args.output_dir,
         args.tp,
         args.pp,
+        args.vp,
         args.ep,
         args.etp,
         args.megatron_save_path,
