@@ -29,7 +29,7 @@ export HF_HOME=/checkpoints/hf
 export NCCL_MNNVL_ENABLE=0
 
 srun --container-mounts /lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge:/workspace/Megatron-Bridge \
-     --container-image gitlab-master.nvidia.com/dl/mlperf/optimized:deepseekv3_671b.pytorch.41325967 \
+     --container-image gitlab-master.nvidia.com/dl/mlperf/optimized:deepseekv3_671b.pytorch.41321767 \
      --no-container-mount-home \
      torchrun \
        --nnodes 64 \
