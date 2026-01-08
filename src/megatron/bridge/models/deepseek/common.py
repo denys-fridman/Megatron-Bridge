@@ -185,7 +185,7 @@ def get_common_mapping_list(hf_config=None) -> list:
                             hf_param=f"model.layers.{mtp_layer + num_transformer_layers}.shared_head.norm.weight",
                         ),
                         AutoMapping(
-                            megatron_param="mtp.layers.{mtp_layer}.transformer_layer.mlp.router.expert_bias",
+                            megatron_param=f"mtp.layers.{mtp_layer}.transformer_layer.mlp.router.expert_bias",
                             hf_param=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.gate.e_score_correction_bias",
                         )
                     ]
