@@ -53,22 +53,26 @@ class DeepSeekV3Bridge(MegatronModelBridge):
         if hasattr(hf_config, "aux_loss_alpha"):
             configs["moe_aux_loss_coeff"] = hf_config.aux_loss_alpha
 
-        # TODO: mtp
-
         provider = DeepSeekV3ModelProvider(**configs)
+        provider.mtp_num_layers = getattr(hf_config, "num_nextn_predict_layers", 0) or None
         return provider
 
+    def build_conversion_tasks(self, hf_pretrained, megatron_model):
+        """Override to store config before mapping_registry is called."""
+        # Store config on instance for use in mapping_registry
+        self._hf_config = hf_pretrained.config
+        return super().build_conversion_tasks(hf_pretrained, megatron_model)
+
     def mapping_registry(self) -> MegatronMappingRegistry:
-        mapping_list = get_common_mapping_list()
-
-        param_mappings = {
-            # expert bias
-            "decoder.layers.*.mlp.router.expert_bias": "model.layers.*.mlp.gate.e_score_correction_bias",
-        }
-
-        for megatron_param, hf_param in param_mappings.items():
-            mapping_list.append(AutoMapping(megatron_param=megatron_param, hf_param=hf_param))
-
+        # Get hf_config if available (set by build_conversion_tasks)
+        hf_config = getattr(self, "_hf_config", None)
+        mapping_list = get_common_mapping_list(hf_config=hf_config)
+        mapping_list.append(
+            AutoMapping(
+                megatron_param="decoder.layers.*.mlp.router.expert_bias",
+                hf_param="model.layers.*.mlp.gate.e_score_correction_bias",
+            )
+        )
         return MegatronMappingRegistry(*mapping_list)
 
     def maybe_modify_converted_hf_weight(
