@@ -147,7 +147,7 @@ def main(
     is_rank_0 = torch.distributed.get_rank() == 0
 
     if is_rank_0:
-        console.print("Number of MTP layers: {model_provider.mtp_num_layers}")
+        console.print(f"Number of MTP layers: {model_provider.mtp_num_layers}")
 
     # Formatting
     if is_rank_0:
