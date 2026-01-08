@@ -13,44 +13,23 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --open-mode=append
 #SBATCH --output=/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints/slurm_logs/slurm_%j.out
-#SBATCH --partition=gb200
-#SBATCH --time=01:00:00
+#SBATCH --partition=batch
+#SBATCH --time=00:30:00
 
 set -evx
 
-# export PYTHONUNBUFFERED=1
-# export SLURM_UNBUFFEREDIO=1
-# export TORCHX_MAX_RETRIES=0
-
 set +e
-
-# setup
 
 nodes=( $( scontrol show hostnames $SLURM_JOB_NODELIST ) )
 nodes_array=($nodes)
 head_node=${nodes_array[0]}
 head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 
-# export TORCH_NCCL_AVOID_RECORD_STREAMS=1
-# export TRANSFORMERS_OFFLINE=0
-# export TOKENIZERS_PARALLELISM=False
-# export NCCL_NVLS_ENABLE=0
-# export TORCH_NCCL_HIGH_PRIORITY=1
-# export NEMORUN_HOME=/home/dfridman/.nemo_run
-# export NCCL_NET_GDR_LEVEL=PHB
-# export NCCL_NET_GDR_C2C=1
-# export HF_TOKEN=dummy
 export HF_HOME=/checkpoints/hf
-# export CUDA_DEVICE_MAX_CONNECTIONS=32
-# export NVTE_FWD_LAYERNORM_SM_MARGIN=16
-# export NVTE_BWD_LAYERNORM_SM_MARGIN=16
-# export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-# export PYTHONPATH=/lustre/fs1/portfolios/coreai/projects/coreai_mlperf_training/users/dfridman/repos/Megatron-Bridge/scripts/performance:$PYTHONPATH
-
 export NCCL_MNNVL_ENABLE=0
 
 srun --container-mounts /lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge:/workspace/Megatron-Bridge \
-     --container-image gitlab-master.nvidia.com/dl/mlperf/optimized:deepseekv3_671b.pytorch.41084612 \
+     --container-image gitlab-master.nvidia.com/dl/mlperf/optimized:deepseekv3_671b.pytorch.41325967 \
      --no-container-mount-home \
      torchrun \
        --nnodes 64 \
@@ -58,8 +37,8 @@ srun --container-mounts /lustre/fsw/coreai_mlperf_training/users/dfridman/checkp
        --rdzv_id $RANDOM \
        --rdzv_backend c10d \
        --rdzv_endpoint $head_node_ip:29500 \
-       /workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu_custom_config.py \
+       /workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py \
        --hf-model-id deepseek-ai/DeepSeek-V3-Base \
        --tp 1 --pp 4 --vp 4 --ep 64 \
-       --megatron-save-path /checkpoints/megatron/DeepSeek-V3-Base-custom-config-proper-parallel-bf16 \
+       --megatron-save-path /checkpoints/megatron/DeepSeek-V3-Base-bf16 \
        --trust-remote-code
