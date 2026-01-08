@@ -75,7 +75,6 @@ def get_common_configs(hf_pretrained: PreTrainedCausalLM) -> dict:
 
     # MTP module
     configs["mtp_num_layers"] = getattr(hf_config, "num_nextn_predict_layers", 0)
-    configs["use_mtp"] = configs["mtp_num_layers"] > 0
 
     return configs
 
