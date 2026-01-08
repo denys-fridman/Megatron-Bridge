@@ -18,7 +18,7 @@ from typing import Tuple
 import torch
 from megatron.core.rerun_state_machine import get_rerun_state_machine
 
-from megatron.training.utils import is_last_rank
+from megatron.training.utils import is_last_rank, is_rank0
 
 
 SPIKY_LOSS_FACTOR: int = 10
@@ -67,15 +67,26 @@ def masked_next_token_loss(
     else:
         losses = output_tensor.view(-1).float()
     loss_mask = loss_mask.view(-1).float()
+    rank = torch.distributed.get_rank()
     if is_last_rank():
         num_nans = torch.isnan(losses).sum().item()
-        print(f"losses: {losses}")
-        print(f"losses.shape: {losses.shape}")
-        print(f"losses.num_nans: {num_nans}")
-        print(f"loss_mask: {loss_mask}")
+        print(f"rank {rank} losses: {losses}")
+        print(f"rank {rank} losses.shape: {losses.shape}")
+        print(f"rank {rank} losses.num_nans: {num_nans}")
+        print(f"rank {rank} loss_mask: {loss_mask}")
+        print(f"rank {rank} losses.cpu().tolist(): {losses.cpu().tolist()}")
+    if is_rank0():
+        num_nans = torch.isnan(losses).sum().item()
+        print(f"rank {rank} losses: {losses}")
+        print(f"rank {rank} losses.shape: {losses.shape}")
+        print(f"rank {rank} losses.num_nans: {num_nans}")
+        print(f"rank {rank} loss_mask: {loss_mask}")
+        print(f"rank {rank} losses.cpu().tolist(): {losses.cpu().tolist()}")
     loss = torch.sum(losses * loss_mask)
     if is_last_rank():
-        print(f"loss: {loss}")
+        print(f"rank {rank} loss: {loss}")
+    if is_rank0():
+        print(f"rank {rank} loss: {loss}")
 
     # Check individual rank losses are not NaN prior to DP all-reduce.
     rerun_state_machine = get_rerun_state_machine()
