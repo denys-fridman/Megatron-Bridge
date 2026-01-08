@@ -9,7 +9,7 @@
 #SBATCH --exclusive
 #SBATCH --job-name=coreai_mlperf_training-training.deepseek_v3_conversion
 #SBATCH --mem=0
-#SBATCH --nodes=32
+#SBATCH --nodes=64
 #SBATCH --ntasks-per-node=1
 #SBATCH --open-mode=append
 #SBATCH --output=/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints/slurm_logs/slurm_%j.out
@@ -32,8 +32,8 @@ srun --container-mounts /lustre/fsw/coreai_mlperf_training/users/dfridman/checkp
      --container-image gitlab-master.nvidia.com/dl/mlperf/optimized:deepseekv3_671b.pytorch.41325967 \
      --no-container-mount-home \
      torchrun \
-       --nnodes 32 \
-       --nproc_per_node 8 \
+       --nnodes 64 \
+       --nproc_per_node 4 \
        --rdzv_id $RANDOM \
        --rdzv_backend c10d \
        --rdzv_endpoint $head_node_ip:29500 \
