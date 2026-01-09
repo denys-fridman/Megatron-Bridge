@@ -28,7 +28,7 @@ head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 export HF_HOME=/checkpoints/hf
 export NCCL_MNNVL_ENABLE=0
 
-srun --container-mounts /lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge:/workspace/Megatron-Bridge \
+srun --container-mounts /lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py:/workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/src/megatron/bridge/models/deepseek:/workspace/Megatron-Bridge/src/megatron/bridge/models/deepseek \
      --container-image gitlab-master.nvidia.com/dl/mlperf/optimized:deepseekv3_671b.pytorch.41321767 \
      --no-container-mount-home \
      torchrun \
@@ -38,7 +38,7 @@ srun --container-mounts /lustre/fsw/coreai_mlperf_training/users/dfridman/checkp
        --rdzv_backend c10d \
        --rdzv_endpoint $head_node_ip:29500 \
        /workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py \
-       --hf-model-id deepseek-ai/DeepSeek-V3-Base \
+       --hf-model-id /checkpoints/hf/DeepSeek-V3-Base-BF16 \
        --tp 1 --pp 4 --vp 4 --ep 64 \
        --megatron-save-path /checkpoints/megatron/DeepSeek-V3-Base-bf16 \
        --trust-remote-code
