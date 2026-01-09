@@ -164,19 +164,20 @@ def main(
         console.print(f"[yellow]Expert parallel size: {model_provider.expert_model_parallel_size}[/yellow]")
         console.print(f"[yellow]Expert tensor parallel size: {model_provider.expert_tensor_parallel_size}[/yellow]")
 
-    # for name, param in bridge.export_hf_weights(megatron_model, show_progress=False):
-    #     if is_rank_0:
-    #         original_param = bridge.hf_pretrained.state[name]
-    #         match = torch.allclose(
-    #             param, original_param.to(param.device), atol=1e-1
-    #         )  # Increased tolerance for bfloat16
-    #         table.add_row(
-    #             name,
-    #             str(tuple(param.shape)),
-    #             str(param.dtype).replace("torch.", ""),
-    #             str(param.device),
-    #             "✅" if match else "❌",
-    #         )
+    for name, param in bridge.export_hf_weights(megatron_model, show_progress=False):
+        if is_rank_0:
+            original_param = bridge.hf_pretrained.state[name]
+            match = torch.allclose(
+                param, original_param.to(param.device), atol=1e-1
+            )  # Increased tolerance for bfloat16
+            print(f"name: {name}, match: {match}")
+            table.add_row(
+                name,
+                str(tuple(param.shape)),
+                str(param.dtype).replace("torch.", ""),
+                str(param.device),
+                "✅" if match else "❌",
+            )
 
     # if is_rank_0:
     #     console.print(table)
