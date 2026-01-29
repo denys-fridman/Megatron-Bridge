@@ -26,7 +26,7 @@ import torch.nn as nn
 from megatron.core.num_microbatches_calculator import get_num_microbatches
 from megatron.core.tensor_parallel import param_is_not_tensor_parallel_duplicate
 from megatron.core.transformer.module import MegatronModule
-from megatron.core.transformer.moe.moe_utils import track_moe_metrics, print_tokens_per_expert_stats
+from megatron.core.transformer.moe.moe_utils import track_moe_metrics, print_tokens_per_expert_stats, print_fc1_input_shapes
 from megatron.core.transformer.multi_token_prediction import MTPLossLoggingHelper
 from megatron.core.utils import get_data_parallel_group_if_dtensor, to_local_if_dtensor
 
@@ -581,6 +581,8 @@ def training_log(
             num_layers=config.model.num_layers,
             moe_layer_freq=config.model.moe_layer_freq,
         )
+        # Print fc1 input shapes for debugging
+        print_fc1_input_shapes(iteration=iteration)
     if config.model.mtp_num_layers is not None:
         mtp_loss_scale = 1 / get_num_microbatches()
         MTPLossLoggingHelper.track_mtp_metrics(mtp_loss_scale, iteration, writer, wandb_writer, total_loss_dict)
