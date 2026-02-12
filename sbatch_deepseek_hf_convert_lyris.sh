@@ -41,7 +41,7 @@ srun --container-mounts $MOUNTS \
        --rdzv_endpoint $head_node_ip:29500 \
        /workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py \
        --hf-model-id /checkpoints/hf/DeepSeek-V3-Base-BF16 \
-       --tp 1 --pp 4 --vp 4 --ep 64 \
+       --tp 1 --pp 1 --ep 64 \
        --megatron-load-path /megatron_checkpoint \
        --trust-remote-code \
        --output-dir /checkpoints/to_hf
