@@ -13,7 +13,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --open-mode=append
 #SBATCH --output=/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints/slurm_logs/slurm_%j.out
-#SBATCH --partition=gb300
+#SBATCH --partition=gb200
 #SBATCH --time=00:30:00
 
 set -evx
@@ -28,8 +28,10 @@ head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 export HF_HOME=/checkpoints/hf
 export NCCL_MNNVL_ENABLE=0
 
-srun --container-mounts /lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py:/workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/src/megatron/bridge/models/deepseek:/workspace/Megatron-Bridge/src/megatron/bridge/models/deepseek \
-     --container-image gitlab-master.nvidia.com/dl/mlperf/optimized:deepseekv3_671b.pytorch.41321767 \
+MOUNTS="/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py:/workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/src/megatron/bridge/models/deepseek:/workspace/Megatron-Bridge/src/megatron/bridge/models/deepseek,/lustre/fsw/coreai_mlperf_training/users/dfridman/logs/dsv3_8b/hf_pretrained/149/checkpoints/iter_0000100:/megatron_checkpoint"
+
+srun --container-mounts $MOUNTS \
+     --container-image gitlab-master.nvidia.com:5005/dl/mlperf/optimized:deepseekv3_671b.pytorch.43842447 \
      --no-container-mount-home \
      torchrun \
        --nnodes 64 \
@@ -40,5 +42,6 @@ srun --container-mounts /lustre/fsw/coreai_mlperf_training/users/dfridman/checkp
        /workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py \
        --hf-model-id /checkpoints/hf/DeepSeek-V3-Base-BF16 \
        --tp 1 --pp 4 --vp 4 --ep 64 \
-       --megatron-save-path /checkpoints/megatron/DeepSeek-V3-Base-bf16 \
-       --trust-remote-code
+       --megatron-load-path /megatron_checkpoint \
+       --trust-remote-code \
+       --output-dir /checkpoints/to_hf
