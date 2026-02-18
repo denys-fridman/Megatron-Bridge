@@ -258,6 +258,7 @@ def setup(
             model,
             optimizer,
             scheduler,
+            strict=False,
             checkpointing_context=checkpointing_context,
             skip_load_to_model_and_opt=cfg.dist.use_torch_fsdp2 or cfg.dist.use_megatron_fsdp,
         )
@@ -400,6 +401,7 @@ def _create_peft_pre_wrap_hook(cfg: ConfigContainer, state: GlobalState) -> Call
             model=model,
             optimizer=None,  # Don't load optimizer - will be created after PEFT
             opt_param_scheduler=None,  # Don't load scheduler - will be created after PEFT
+            strict=False,
             checkpointing_context={},
             skip_load_to_model_and_opt=False,
             ignore_ckpt_step=True,  # ckpt_step applies only to adapter checkpoints, not pretrained base model
