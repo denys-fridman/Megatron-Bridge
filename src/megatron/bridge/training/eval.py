@@ -89,7 +89,7 @@ def evaluate(
     total_loss_dict = {}
 
     # make validation batch size independent from training batch size
-    eval_batch_size = state.cfg.train.global_batch_size
+    eval_batch_size = getattr(state.cfg.train, 'eval_batch_size', state.cfg.train.global_batch_size)
     eval_num_microbatches = eval_batch_size // (state.cfg.train.micro_batch_size * state.cfg.data_parallel_size)
 
     with torch.no_grad():
