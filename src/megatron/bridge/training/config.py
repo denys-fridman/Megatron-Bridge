@@ -82,6 +82,9 @@ class OptimizerConfig(MCoreOptimizerConfig):
     for field modifications after construction but before computed fields are calculated.
     """
 
+    dump_param_to_param_group_map: Optional[str] = None
+    """Path to dump parameter-to-parameter-group mapping for FSDP checkpoint conversion."""
+
     def __post_init__(self) -> None:
         """Skip MCore post_init during initial construction.
 
