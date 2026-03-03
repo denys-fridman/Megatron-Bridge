@@ -29,6 +29,7 @@ export HF_HOME=/checkpoints/hf
 export NCCL_MNNVL_ENABLE=0
 
 MOUNTS="/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/logs/dsv3_8b/hf_pretrained/149/checkpoints/iter_0000100:/megatron_checkpoint"
+MOUNTS="$MOUNTS,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py:/workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py"
 
 srun --container-mounts $MOUNTS \
      --container-image gitlab-master.nvidia.com:5005/dl/mlperf/optimized:deepseekv3_671b.pytorch.45225069 \
