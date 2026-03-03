@@ -28,11 +28,10 @@ head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 export HF_HOME=/checkpoints/hf
 export NCCL_MNNVL_ENABLE=0
 
-MOUNTS="/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py:/workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/src/megatron/bridge/models/deepseek:/workspace/Megatron-Bridge/src/megatron/bridge/models/deepseek,/lustre/fsw/coreai_mlperf_training/users/dfridman/logs/dsv3_8b/hf_pretrained/149/checkpoints/iter_0000100:/megatron_checkpoint"
-MOUNTS="$MOUNTS,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/src/megatron/bridge/models/mla_provider.py:/workspace/Megatron-Bridge/src/megatron/bridge/models/mla_provider.py"
+MOUNTS="/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/logs/dsv3_8b/hf_pretrained/149/checkpoints/iter_0000100:/megatron_checkpoint"
 
 srun --container-mounts $MOUNTS \
-     --container-image gitlab-master.nvidia.com:5005/dl/mlperf/optimized:deepseekv3_671b.pytorch.43842447 \
+     --container-image gitlab-master.nvidia.com:5005/dl/mlperf/optimized:deepseekv3_671b.pytorch.45225069 \
      --no-container-mount-home \
      torchrun \
        --nnodes 64 \
