@@ -53,6 +53,7 @@ from rich.table import Table
 from megatron.bridge import AutoBridge
 from megatron.bridge.models.decorators import torchrun_main
 from megatron.bridge.models.hf_pretrained.utils import is_safe_repo
+from megatron.bridge.recipes.deepseek.deepseek_v3 import set_deepseek_v3_pipeline_model_parallel_layout
 
 
 HF_MODEL_ID = "meta-llama/Llama-3.2-1B"
@@ -101,6 +102,7 @@ def main(
         model_provider.params_dtype = torch.bfloat16
         model_provider.expert_model_parallel_size = ep
         model_provider.expert_tensor_parallel_size = etp
+        set_deepseek_v3_pipeline_model_parallel_layout(model_provider)
 
         # Once all overrides are set, finalize the model provider to ensure the post initialization logic is run
         model_provider.finalize()
@@ -127,6 +129,7 @@ def main(
         model_provider.params_dtype = torch.bfloat16
         model_provider.expert_model_parallel_size = ep
         model_provider.expert_tensor_parallel_size = etp
+        set_deepseek_v3_pipeline_model_parallel_layout(model_provider)
 
         # Once all overrides are set, finalize the model provider to ensure the post initialization logic is run
         model_provider.finalize()
