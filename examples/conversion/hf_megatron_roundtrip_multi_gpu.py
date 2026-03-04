@@ -62,7 +62,6 @@ console = Console()
 @torchrun_main
 def main(
     hf_model_id: str = HF_MODEL_ID,
-    output_dir: str = None,
     tp: int = 1,
     pp: int = 1,
     vp: int | None = None,
@@ -71,19 +70,12 @@ def main(
     megatron_save_path: str | None = None,
     megatron_load_path: str | None = None,
     trust_remote_code: bool | None = None,
-    strict: bool = False,
 ) -> None:
     """Perform round-trip conversion between HuggingFace and Megatron-LM models on multiple GPUs."""
     if os.environ.get("WORLD_SIZE") is None:
         console.print("This script must be launched with torchrun. Please run:")
         console.print(f"torchrun --nproc_per_node <gpus> {sys.argv[0]}")
         sys.exit(1)
-
-    model_name = hf_model_id.split("/")[-1]
-    if output_dir:
-        save_path = os.path.join(output_dir, model_name)
-    else:
-        save_path = model_name
 
     bridge = AutoBridge.from_hf_pretrained(
         hf_model_id,
@@ -141,11 +133,6 @@ def main(
     # Now we can check for rank
     is_rank_0 = torch.distributed.get_rank() == 0
 
-    if is_rank_0:
-        console.print(f"Saving HF-ckpt in {save_path}...")
-
-    bridge.save_hf_pretrained(megatron_model, save_path, strict=strict)
-
     # Save in Megatron format if path is provided
     if megatron_save_path:
         if is_rank_0:
@@ -158,12 +145,6 @@ if __name__ == "__main__":
         description="Convert between HuggingFace and Megatron-LM model formats on multiple GPUs"
     )
     parser.add_argument("--hf-model-id", type=str, default=HF_MODEL_ID, help="HuggingFace model ID to convert")
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default=None,
-        help="The directory where the converted model directory will be created. Defaults to the current working directory.",
-    )
     parser.add_argument("--tp", type=int, default=1, help="Tensor parallelism size")
     parser.add_argument("--pp", type=int, default=1, help="Pipeline parallelism size")
     parser.add_argument("--vp", type=int, default=None, help="Virtual pipeline parallelism size")
@@ -183,11 +164,9 @@ if __name__ == "__main__":
         help="Path to load the model in Megatron checkpoint format. If provided, model will not start from HF checkpoint.",
     )
     parser.add_argument("--trust-remote-code", action="store_true", help="if trust_remote_code")
-    parser.add_argument("--not-strict", action="store_true", help="Perform loose validation during weight export")
     args = parser.parse_args()
     main(
         args.hf_model_id,
-        args.output_dir,
         args.tp,
         args.pp,
         args.vp,
