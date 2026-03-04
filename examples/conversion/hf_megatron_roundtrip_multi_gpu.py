@@ -66,6 +66,7 @@ def main(
     output_dir: str = None,
     tp: int = 1,
     pp: int = 1,
+    vp: int | None = None,
     ep: int = 1,
     etp: int = 1,
     megatron_save_path: str | None = None,
@@ -98,6 +99,7 @@ def main(
         model_provider = bridge.to_megatron_provider(load_weights=False)
         model_provider.tensor_model_parallel_size = tp
         model_provider.pipeline_model_parallel_size = pp
+        model_provider.virtual_pipeline_model_parallel_size = vp
         model_provider.pipeline_dtype = torch.bfloat16
         model_provider.params_dtype = torch.bfloat16
         model_provider.expert_model_parallel_size = ep
@@ -125,6 +127,7 @@ def main(
         model_provider = bridge.to_megatron_provider(load_weights=True)
         model_provider.tensor_model_parallel_size = tp
         model_provider.pipeline_model_parallel_size = pp
+        model_provider.virtual_pipeline_model_parallel_size = vp
         model_provider.pipeline_dtype = torch.bfloat16
         model_provider.params_dtype = torch.bfloat16
         model_provider.expert_model_parallel_size = ep
@@ -199,6 +202,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--tp", type=int, default=1, help="Tensor parallelism size")
     parser.add_argument("--pp", type=int, default=1, help="Pipeline parallelism size")
+    parser.add_argument("--vp", type=int, default=None, help="Virtual pipeline parallelism size")
     parser.add_argument("--ep", type=int, default=1, help="Expert parallelism size")
     parser.add_argument("--etp", type=int, default=1, help="Expert tensor parallelism size")
 
@@ -222,6 +226,7 @@ if __name__ == "__main__":
         args.output_dir,
         args.tp,
         args.pp,
+        args.vp,
         args.ep,
         args.etp,
         args.megatron_save_path,
