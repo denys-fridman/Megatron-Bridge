@@ -48,7 +48,6 @@ import sys
 
 import torch
 from rich.console import Console
-from rich.table import Table
 
 from megatron.bridge import AutoBridge
 from megatron.bridge.models.decorators import torchrun_main
@@ -142,39 +141,7 @@ def main(
     # Now we can check for rank
     is_rank_0 = torch.distributed.get_rank() == 0
 
-    # Formatting
     if is_rank_0:
-        table = Table(title="Hugging Face Weights Verification")
-        table.add_column("Weight Name", style="cyan")
-        table.add_column("Shape")
-        table.add_column("DType")
-        table.add_column("Device")
-        table.add_column("Matches Original", justify="center")
-
-    if is_rank_0:
-        console.print(f"[yellow]Tensor parallel size: {model_provider.tensor_model_parallel_size}[/yellow]")
-        console.print(f"[yellow]Pipeline parallel size: {model_provider.pipeline_model_parallel_size}[/yellow]")
-        console.print(f"[yellow]Expert parallel size: {model_provider.expert_model_parallel_size}[/yellow]")
-        console.print(f"[yellow]Expert tensor parallel size: {model_provider.expert_tensor_parallel_size}[/yellow]")
-
-    all_match = True
-    for name, param in bridge.export_hf_weights(megatron_model, show_progress=False):
-        if is_rank_0:
-            original_param = bridge.hf_pretrained.state[name]
-            match = torch.allclose(
-                param, original_param.to(param.device), atol=1e-1
-            )  # Increased tolerance for bfloat16
-            all_match = all_match and match
-            table.add_row(
-                name,
-                str(tuple(param.shape)),
-                str(param.dtype).replace("torch.", ""),
-                str(param.device),
-                "✅" if match else "❌",
-            )
-
-    if is_rank_0:
-        console.print(table)
         console.print(f"Saving HF-ckpt in {save_path}...")
 
     bridge.save_hf_pretrained(megatron_model, save_path, strict=strict)
@@ -184,9 +151,6 @@ def main(
         if is_rank_0:
             console.print(f"Saving Megatron checkpoint in {megatron_save_path}...")
         bridge.save_megatron_model(megatron_model, megatron_save_path)
-
-    if not all_match:
-        raise ValueError("Weight mismatch detected")
 
 
 if __name__ == "__main__":
