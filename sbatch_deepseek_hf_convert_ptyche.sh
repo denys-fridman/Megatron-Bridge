@@ -9,12 +9,12 @@
 #SBATCH --exclusive
 #SBATCH --job-name=coreai_mlperf_training-training.deepseek_v3_conversion
 #SBATCH --mem=0
-#SBATCH --nodes=64
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=1
 #SBATCH --open-mode=append
 #SBATCH --output=/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints/slurm_logs/slurm_%j.out
 #SBATCH --partition=batch
-#SBATCH --time=00:30:00
+#SBATCH --time=00:15:00
 
 set -evx
 
@@ -32,13 +32,13 @@ srun --container-mounts /lustre/fsw/coreai_mlperf_training/users/dfridman/checkp
      --container-image gitlab-master.nvidia.com/dl/mlperf/optimized:deepseekv3_671b.pytorch.45672539 \
      --no-container-mount-home \
      torchrun \
-       --nnodes 64 \
+       --nnodes 16 \
        --nproc_per_node 4 \
        --rdzv_id $RANDOM \
        --rdzv_backend c10d \
        --rdzv_endpoint $head_node_ip:29500 \
        /workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py \
        --hf-model-id /checkpoints/hf/DeepSeek-V3-Base-BF16 \
-       --tp 1 --pp 4 --vp 4 --ep 64 \
-       --megatron-save-path /checkpoints/megatron/DeepSeek-V3-Base-bf16 \
+       --tp 1 --pp 4 --vp 4 --ep 16 \
+       --megatron-save-path /checkpoints/megatron/DeepSeek-V3-Base-bf16-MR \
        --trust-remote-code
