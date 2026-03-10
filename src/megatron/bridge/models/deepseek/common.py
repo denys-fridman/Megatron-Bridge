@@ -151,7 +151,10 @@ def get_common_mapping_list(hf_config=None) -> list:
         # Add MTP mappings if config has MTP layers
         num_mtp_layers = getattr(hf_config, "num_nextn_predict_layers", 0)
         if num_mtp_layers > 0:
+            print(f"CONVERTING MTP: {num_mtp_layers} MTP layers")
             num_transformer_layers = hf_config.num_hidden_layers
+        else:
+            print("NO MTP FOUND")
 
             for mtp_layer in range(num_mtp_layers):
                 # Add layer-specific mappings for MTP transformer layers
