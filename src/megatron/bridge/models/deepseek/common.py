@@ -153,14 +153,12 @@ def get_common_mapping_list(hf_config=None) -> list:
         if num_mtp_layers > 0:
             print(f"CONVERTING MTP: {num_mtp_layers} MTP layers")
             num_transformer_layers = hf_config.num_hidden_layers
-        else:
-            print("NO MTP FOUND")
 
             for mtp_layer in range(num_mtp_layers):
                 # Add layer-specific mappings for MTP transformer layers
                 for megatron_param, hf_param in param_mappings.items():
                     megatron_param_mtp = (
-                        megatron_param.replace(".*", ".*.transformer_layer")
+                        megatron_param.replace(".*", ".*.mtp_model_layer")
                         .replace("decoder", "mtp")
                         .replace(".*", f".{mtp_layer}")
                     )
@@ -187,7 +185,7 @@ def get_common_mapping_list(hf_config=None) -> list:
                             hf_param=f"model.layers.{mtp_layer + num_transformer_layers}.shared_head.norm.weight",
                         ),
                         AutoMapping(
-                            megatron_param=f"mtp.layers.{mtp_layer}.transformer_layer.mlp.router.expert_bias",
+                            megatron_param=f"mtp.layers.{mtp_layer}.mtp_model_layer.mlp.router.expert_bias",
                             hf_param=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.gate.e_score_correction_bias",
                         )
                     ]
@@ -197,21 +195,23 @@ def get_common_mapping_list(hf_config=None) -> list:
                 mapping_list.extend(
                     [
                         GatedMLPMapping(
-                            megatron_param=f"mtp.layers.{mtp_layer}.transformer_layer.mlp.linear_fc1.weight",
+                            megatron_param=f"mtp.layers.{mtp_layer}.mtp_model_layer.mlp.linear_fc1.weight",
                             gate=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.gate_proj.weight",
                             up=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.up_proj.weight",
                         ),
                         GatedMLPMapping(
-                            megatron_param=f"mtp.layers.{mtp_layer}.transformer_layer.mlp.shared_experts.linear_fc1.weight",
+                            megatron_param=f"mtp.layers.{mtp_layer}.mtp_model_layer.mlp.shared_experts.linear_fc1.weight",
                             gate=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.shared_experts.gate_proj.weight",
                             up=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.shared_experts.up_proj.weight",
                         ),
                         GatedMLPMapping(
-                            megatron_param=f"mtp.layers.{mtp_layer}.transformer_layer.mlp.experts.linear_fc1.weight*",
+                            megatron_param=f"mtp.layers.{mtp_layer}.mtp_model_layer.mlp.experts.linear_fc1.weight*",
                             gate=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.experts.*.gate_proj.weight",
                             up=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.experts.*.up_proj.weight",
                         ),
                     ]
                 )
+        else:
+            print("NO MTP FOUND")
 
     return mapping_list
