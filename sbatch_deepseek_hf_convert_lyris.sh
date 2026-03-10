@@ -28,7 +28,7 @@ head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 export HF_HOME=/checkpoints/hf
 export NCCL_MNNVL_ENABLE=0
 
-MOUNTS="/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/logs/dsv3_8b/hf_pretrained/149/checkpoints/iter_0000100:/megatron_checkpoint"
+MOUNTS="/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints"
 MOUNTS="$MOUNTS,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py:/workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py"
 
 srun --container-mounts $MOUNTS \
@@ -43,6 +43,5 @@ srun --container-mounts $MOUNTS \
        /workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py \
        --hf-model-id /checkpoints/hf/DeepSeek-V3-Base-BF16 \
        --tp 1 --pp 4 --vp 4 --ep 64 \
-       --megatron-load-path /megatron_checkpoint \
-       --trust-remote-code \
-       --output-dir /checkpoints/to_hf
+       --megatron-save-path /checkpoints/megatron/DeepSeek-V3-Base-bf16 \
+       --trust-remote-code

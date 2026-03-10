@@ -188,20 +188,20 @@ def main(
     #             "✅" if match else "❌",
     #         )
 
-    if is_rank_0:
-        console.print(table)
-        console.print(f"Saving HF-ckpt in {save_path}...")
+    # if is_rank_0:
+    #     console.print(table)
+    #     console.print(f"Saving HF-ckpt in {save_path}...")
 
-    bridge.save_hf_pretrained(megatron_model, save_path, strict=strict)
+    # bridge.save_hf_pretrained(megatron_model, save_path, strict=strict)
 
     # Save in Megatron format if path is provided
-    # if megatron_save_path:
-    #     if is_rank_0:
-    #         console.print(f"Saving Megatron checkpoint in {megatron_save_path}...")
-    #     bridge.save_megatron_model(megatron_model, megatron_save_path)
+    if megatron_save_path:
+        if is_rank_0:
+            console.print(f"Saving Megatron checkpoint in {megatron_save_path}...")
+        bridge.save_megatron_model(megatron_model, megatron_save_path)
 
-    if not all_match:
-        raise ValueError("Weight mismatch detected")
+    # if not all_match:
+    #     raise ValueError("Weight mismatch detected")
 
 
 if __name__ == "__main__":
