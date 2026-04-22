@@ -106,7 +106,7 @@ def main(
         model_provider.expert_model_parallel_size = ep
         model_provider.expert_tensor_parallel_size = etp
 
-        set_deepseek_v3_pipeline_model_parallel_layout(model_provider)
+        # set_deepseek_v3_pipeline_model_parallel_layout(model_provider)
 
         # Once all overrides are set, finalize the model provider to ensure the post initialization logic is run
         model_provider.finalize()
