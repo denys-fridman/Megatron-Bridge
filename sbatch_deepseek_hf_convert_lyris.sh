@@ -9,11 +9,11 @@
 #SBATCH --exclusive
 #SBATCH --job-name=coreai_mlperf_training-training.deepseek_v3_conversion
 #SBATCH --mem=0
-#SBATCH --nodes=64
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=1
 #SBATCH --open-mode=append
 #SBATCH --output=/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints/slurm_logs/slurm_%j.out
-#SBATCH --partition=gb300
+#SBATCH --partition=gb200
 #SBATCH --time=00:15:00
 
 set -evx
@@ -32,7 +32,7 @@ export NCCL_MNNVL_ENABLE=0
 # MOUNTS="$MOUNTS,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py:/workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py"
 # MOUNTS="$MOUNTS,/lustre/share/coreai_mlperf_training/data/dsv3/mbridge-ckpt:/input_checkpoint"
 
-MOUNTS="/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py:/workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/src/megatron/bridge/models/deepseek:/workspace/Megatron-Bridge/src/megatron/bridge/models/deepseek,/lustre/share/coreai_mlperf_training/data/dsv3/mbridge-ckpt/iter_0000000/:/megatron_checkpoint"
+MOUNTS="/lustre/fsw/coreai_mlperf_training/users/dfridman/checkpoints:/checkpoints,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py:/workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py,/lustre/fsw/coreai_mlperf_training/users/dfridman/Megatron-Bridge/src/megatron/bridge/models:/workspace/Megatron-Bridge/src/megatron/bridge/models,/lustre/share/coreai_mlperf_training/data/dsv3/mbridge-ckpt/iter_0000000/:/megatron_checkpoint"
 
 srun --container-mounts $MOUNTS \
      --container-image gitlab-master.nvidia.com:5005/dl/mlperf/optimized:deepseekv3_671b.pytorch.43842447 \
@@ -45,7 +45,7 @@ srun --container-mounts $MOUNTS \
        --rdzv_endpoint $head_node_ip:29500 \
        /workspace/Megatron-Bridge/examples/conversion/hf_megatron_roundtrip_multi_gpu.py \
        --hf-model-id deepseek-ai/DeepSeek-V3-Base \
-       --tp 1 --pp 1 --ep 64 \
+       --tp 1 --pp 4 --vp 4 --ep 16 \
        --megatron-load-path /megatron_checkpoint \
        --trust-remote-code \
        --output-dir /checkpoints/fixed_iter
