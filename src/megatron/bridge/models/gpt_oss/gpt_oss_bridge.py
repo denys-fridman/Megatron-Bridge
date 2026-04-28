@@ -68,6 +68,11 @@ class GPTOSSBridge(MegatronModelBridge):
         provider.moe_grouped_gemm = True
         provider.moe_token_dispatcher_type = "alltoall"
         provider.moe_permute_fusion = True
+        # Fuse permute/unpermute ops into HybridEP dispatch/combine, reducing kernel
+        # count and stream transitions on the HybridEP critical path. Only takes
+        # effect when moe_flex_dispatcher_backend == "hybridep" and moe_permute_fusion
+        # is True (both already configured). Same numerics, fewer kernels.
+        provider.moe_permute_fusion_into_hybridep = True
         provider.moe_router_load_balancing_type = "none"
 
         provider.bias_activation_fusion = True
