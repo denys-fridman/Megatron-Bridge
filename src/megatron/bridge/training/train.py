@@ -558,7 +558,14 @@ def train(
         # Logging.
         if not config.logger.skip_train_metrics_log:
             if hasattr(optimizer, "is_stub_optimizer") and not optimizer.is_stub_optimizer:
-                loss_scale = optimizer.get_loss_scale().item()
+                # PerfClaw iter23b: skip loss_scale.item() to avoid CPU-GPU sync every step.
+                # Loss scale is constant 1.0 under bf16/fp4 training (no grad scaler).
+                # Only unpack .item() if we know there's a scaler (fp16 training) that might
+                # be dynamically adjusting the scale.
+                if getattr(optimizer, "grad_scaler", None) is not None:
+                    loss_scale = optimizer.get_loss_scale().item()
+                else:
+                    loss_scale = 1.0
             else:
                 loss_scale = 1.0
             params_norm = None
