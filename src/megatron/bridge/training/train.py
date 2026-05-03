@@ -760,6 +760,64 @@ def train(
         )
 
 
+# ==== PerfClaw profile-step-decompose instrumentation ====
+# Measures per-phase wall time using torch.cuda.Event pairs.
+# Activated via env PERFCLAW_PROFILE_STEPS="15,16,17" (comma-separated step indices, 0-based).
+# Prints one line per phase per profiled step on rank 0. No effect on other steps.
+import os as _os_pc
+_PC_PROFILE_STEPS = set()
+_pc_steps = _os_pc.environ.get("PERFCLAW_PROFILE_STEPS", "")
+if _pc_steps:
+    for _s in _pc_steps.split(","):
+        _s = _s.strip()
+        if _s.isdigit():
+            _PC_PROFILE_STEPS.add(int(_s))
+
+_pc_step_counter = [0]  # per-process running step index
+
+class _PCPhaseTimer:
+    def __init__(self, active: bool):
+        self.active = active
+        self.events = []  # list[(name, start_event, end_event)]
+        self._pending_name = None
+        self._pending_start = None
+
+    def start(self, name: str):
+        if not self.active:
+            return
+        ev = torch.cuda.Event(enable_timing=True)
+        ev.record()
+        self._pending_name = name
+        self._pending_start = ev
+
+    def stop(self):
+        if not self.active or self._pending_name is None:
+            return
+        ev = torch.cuda.Event(enable_timing=True)
+        ev.record()
+        self.events.append((self._pending_name, self._pending_start, ev))
+        self._pending_name = None
+        self._pending_start = None
+
+    def report(self, step_idx: int):
+        if not self.active:
+            return
+        torch.cuda.synchronize()
+        try:
+            rank = torch.distributed.get_rank()
+        except Exception:
+            rank = 0
+        if rank != 0:
+            return
+        print(f"[PERFCLAW_PROFILE] step={step_idx} rank=0 phase_ms:")
+        total = 0.0
+        for name, s, e in self.events:
+            ms = s.elapsed_time(e)
+            total += ms
+            print(f"[PERFCLAW_PROFILE]   {name:40s} {ms:8.3f} ms")
+        print(f"[PERFCLAW_PROFILE]   {'TOTAL_MEASURED':40s} {total:8.3f} ms")
+# ==== end instrumentation ====
+
 def train_step(
     forward_step_func: ForwardStepCallable,
     data_iterator: Optional[Union[RerunDataIterator, list[RerunDataIterator]]],
@@ -800,12 +858,24 @@ def train_step(
     train_config = cfg.train
     optim_config = cfg.optimizer
 
+    # PerfClaw: activate phase timing on requested steps only.
+    _pc_this_step = _pc_step_counter[0]
+    _pc_step_counter[0] += 1
+    _pc_active = _pc_this_step in _PC_PROFILE_STEPS
+    _pc_pt = _PCPhaseTimer(active=_pc_active)
+    if _pc_active:
+        _pc_pt.start("full_step_wrapper")
+
     rerun_state_machine = get_rerun_state_machine()
     while rerun_state_machine.should_run_forward_backward(data_iterator):
         # Set grad to zero.
+        if _pc_active:
+            _pc_pt.stop(); _pc_pt.start("zero_grad")
         for model_chunk in model:
             model_chunk.zero_grad_buffer()
         optimizer.zero_grad()
+        if _pc_active:
+            _pc_pt.stop(); _pc_pt.start("mxfp8_buf_copy")
 
         _handle_mxfp8_param_buffer_copy(
             optimizer=optimizer,
@@ -813,6 +883,8 @@ def train_step(
             reuse_grad_buf_for_mxfp8_param_ag=cfg.optimizer.reuse_grad_buf_for_mxfp8_param_ag,
             overlap_param_gather=cfg.ddp.overlap_param_gather,
         )
+        if _pc_active:
+            _pc_pt.stop(); _pc_pt.start("forward_backward")
 
         # Handle finetuning vs pretraining data consumption
         seq_length = getattr(model_config, "seq_length", cfg.model.seq_length)  # Default for pretraining
@@ -864,15 +936,21 @@ def train_step(
             p2p_communicator=p2p_communicator,
             pg_collection=pg_collection,
         )
+        if _pc_active:
+            _pc_pt.stop(); _pc_pt.start("post_fwdbwd_python")
     should_checkpoint, should_exit, exit_code = rerun_state_machine.should_checkpoint_and_exit()
     if should_exit:
         return {}, True, should_checkpoint, should_exit, exit_code, None, None, None
 
     # Empty unused memory.
+    if _pc_active:
+        _pc_pt.stop(); _pc_pt.start("empty_cache_L1")
     if train_config.empty_unused_memory_level >= 1:
         torch.cuda.empty_cache()
 
     # Update parameters.
+    if _pc_active:
+        _pc_pt.stop(); _pc_pt.start("optimizer_step")
     timers("optimizer", log_level=1).start(barrier=optim_config.barrier_with_L1_time)
     update_successful, grad_norm, num_zeros_in_grad = optimizer.step()
 
@@ -883,6 +961,8 @@ def train_step(
         log_max_attention_logit = clip_qk(model)
 
     timers("optimizer").stop()
+    if _pc_active:
+        _pc_pt.stop(); _pc_pt.start("post_optim_reductions")
 
     # when freezing sub-models we may have a mixture of successful and unsucessful ranks,
     # so we must gather across mp ranks
@@ -898,12 +978,16 @@ def train_step(
         num_zeros_in_grad = reduce_max_stat_across_model_parallel_group(num_zeros_in_grad, mp_group=pg_collection.mp)
 
     # Update learning rate.
+    if _pc_active:
+        _pc_pt.stop(); _pc_pt.start("scheduler_step")
     if update_successful:
         increment = get_num_microbatches() * train_config.micro_batch_size * cfg.data_parallel_size
         scheduler.step(increment=increment)
         skipped_iter = 0
     else:
         skipped_iter = 1
+    if _pc_active:
+        _pc_pt.stop(); _pc_pt.start("tail_python")
 
     # Empty unused memory.
     if train_config.empty_unused_memory_level >= 2:
@@ -933,6 +1017,8 @@ def train_step(
                 loss_reduced[key] = val
             else:
                 raise ValueError(f"Invalid value shape: {val[0].shape} for key {key}")
+        if _pc_active:
+            _pc_pt.stop(); _pc_pt.report(_pc_this_step)
         return (
             loss_reduced,
             skipped_iter,
@@ -943,6 +1029,8 @@ def train_step(
             num_zeros_in_grad,
             log_max_attention_logit,
         )
+    if _pc_active:
+        _pc_pt.stop(); _pc_pt.report(_pc_this_step)
     return (
         {},
         skipped_iter,
