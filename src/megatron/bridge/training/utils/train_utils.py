@@ -305,6 +305,14 @@ def reduce_max_stat_across_model_parallel_group(
     """
     if stat is None:
         stat = -1.0
+    # PerfClaw iter23d: fast-path when mp_group is size 1 (TP=PP=1); allreduce is no-op
+    # and forcing .item() sync is wasted work on the critical path.
+    try:
+        _mp_size = mp_group.size() if mp_group is not None else 1
+    except Exception:
+        _mp_size = None
+    if _mp_size == 1:
+        return None if stat == -1.0 else float(stat)
     stat = torch.tensor([stat], dtype=torch.float32, device=torch.cuda.current_device())
     torch.distributed.all_reduce(stat, op=torch.distributed.ReduceOp.MAX, group=mp_group)
     if stat.item() == -1.0:
@@ -327,6 +335,13 @@ def logical_and_across_model_parallel_group(input: bool, mp_group: "TorchProcess
         input = 1
     else:
         input = 0
+    # PerfClaw iter23d: fast-path when mp_group size 1
+    try:
+        _mp_size = mp_group.size() if mp_group is not None else 1
+    except Exception:
+        _mp_size = None
+    if _mp_size == 1:
+        return bool(input)
     input = torch.tensor([input], dtype=torch.int, device=torch.cuda.current_device())
     torch.distributed.all_reduce(input, op=torch.distributed.ReduceOp.MIN, group=mp_group)
     return bool(input.item())
