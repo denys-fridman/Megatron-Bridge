@@ -51,6 +51,15 @@ except ImportError:
     HAS_PAGED_STASHING = False
 
 
+def _replicate_microbatches(it, k):
+    """Yield each item from `it` `k` times in a row. Used to inflate eval num_microbatches
+    when eval_global_batch_size is too small for the (PP, VP) topology."""
+    while True:
+        item = next(it)
+        for _ in range(k):
+            yield item
+
+
 def evaluate(
     state: GlobalState,
     forward_step_func: ForwardStepCallable,
@@ -142,7 +151,26 @@ def evaluate(
     # MegatronMIMO has heterogeneous per-module DP groups and intentionally owns
     # global-batch accounting through the container-level DP size.
     eval_data_parallel_size = state.cfg.data_parallel_size if is_multimodule else pg_collection.dp.size()
-    eval_num_microbatches = eval_batch_size // (eval_micro_batch_size * eval_data_parallel_size)
+    eval_dp_product = eval_micro_batch_size * eval_data_parallel_size
+
+    # HACK: cfg.validation.eval_global_batch_size must stay constant (MLPerf-style requirement),
+    # but two runtime topology constraints may force more microbatches than it implies:
+    #   (1) num_microbatches must be >= 1, i.e. >= eval_dp_product samples per fwd-bwd. When
+    #       eval_global_batch_size < eval_dp_product, ceil up to eval_dp_product.
+    #   (2) num_microbatches must be >= max(PP, microbatch_group_size_per_vp_stage), per the
+    #       upstream virtual-pipeline schedule check.
+    # We compute an "effective" num_microbatches that satisfies both — without mutating cfg —
+    # and replicate each upstream microbatch K times so the dataloader is consumed at the rate
+    # implied by ceil(eval_global_batch_size / eval_dp_product). Per-microbatch loss is a mean
+    # and total_loss_dict divides by the same K-inflated count; eval wall-clock scales by K.
+    pp_size = pg_collection.pp.size() if pg_collection is not None else 1
+    mbs_group = getattr(model_config, "microbatch_group_size_per_vp_stage", pp_size) or pp_size
+    base_eval_num_microbatches = max(1, math.ceil(eval_batch_size / eval_dp_product))
+    required_num_microbatches = max(pp_size, mbs_group)
+    eval_microbatch_replication = max(1, math.ceil(required_num_microbatches / base_eval_num_microbatches))
+    effective_eval_num_microbatches = base_eval_num_microbatches * eval_microbatch_replication
+    # Kept for log clarity and any downstream reads of the natural floor-div value.
+    eval_num_microbatches = base_eval_num_microbatches
 
     if is_multimodule and not isinstance(p2p_communicator, MultiModulePipelineCommunicator):
         raise ValueError(
@@ -221,6 +249,17 @@ def evaluate(
                     data_iterator=eval_data_iterator,
                 )
 
+            if eval_microbatch_replication > 1:
+                if isinstance(eval_data_iterator, list):
+                    eval_data_iterator = [
+                        _replicate_microbatches(it, eval_microbatch_replication)
+                        for it in eval_data_iterator
+                    ]
+                else:
+                    eval_data_iterator = _replicate_microbatches(
+                        eval_data_iterator, eval_microbatch_replication
+                    )
+
             # Don't care about timing during evaluation
             config.timers = None
             fault_tolerance.on_eval_step_start(state)
@@ -244,7 +283,7 @@ def evaluate(
                 forward_step_func=wrapped_forward_step,
                 data_iterator=eval_data_iterator,
                 model=model,
-                num_microbatches=eval_num_microbatches,
+                num_microbatches=effective_eval_num_microbatches,
                 seq_length=seq_length,
                 micro_batch_size=eval_micro_batch_size,
                 forward_only=True,
@@ -345,11 +384,22 @@ def evaluate(
             if non_loss_p2p_communicator is None:
                 non_loss_p2p_communicator = P2PCommunicator(pp_group=pg_collection.pp, config=model_config)
 
+            if eval_microbatch_replication > 1:
+                if isinstance(non_loss_data_iterator, list):
+                    non_loss_data_iterator = [
+                        _replicate_microbatches(it, eval_microbatch_replication)
+                        for it in non_loss_data_iterator
+                    ]
+                else:
+                    non_loss_data_iterator = _replicate_microbatches(
+                        non_loss_data_iterator, eval_microbatch_replication
+                    )
+
             collected_non_loss_data = forward_backward_func(
                 forward_step_func=wrapped_forward_step,
                 data_iterator=non_loss_data_iterator,
                 model=model,
-                num_microbatches=eval_num_microbatches,
+                num_microbatches=effective_eval_num_microbatches,
                 seq_length=non_loss_seq_length,
                 micro_batch_size=eval_micro_batch_size,
                 forward_only=True,

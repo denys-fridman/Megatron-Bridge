@@ -1235,12 +1235,17 @@ class ConfigContainer(Container):
             )
             eval_data_parallel_size = eval_world_size // eval_model_parallel_size
 
+        # HACK: relax to a warning. eval.py applies a runtime replication factor so the
+        # forward_backward pass sees an effective batch that is a multiple of eval_dp_product
+        # without mutating the user-configured eval_global_batch_size (kept constant by req).
         eval_dp_product = self.validation.eval_micro_batch_size * eval_data_parallel_size
-        assert self.validation.eval_global_batch_size % eval_dp_product == 0, (
-            f"eval_global_batch_size ({self.validation.eval_global_batch_size}) must be divisible by "
-            f"eval_micro_batch_size * eval_data_parallel_size ({self.validation.eval_micro_batch_size} * "
-            f"{eval_data_parallel_size} = {eval_dp_product})"
-        )
+        if self.validation.eval_global_batch_size % eval_dp_product != 0:
+            print_rank_0(
+                f"[eval] eval_global_batch_size ({self.validation.eval_global_batch_size}) is not "
+                f"divisible by eval_micro_batch_size * eval_data_parallel_size "
+                f"({self.validation.eval_micro_batch_size} * {eval_data_parallel_size} = "
+                f"{eval_dp_product}); eval.py will replicate microbatches at runtime to compensate."
+            )
 
         # Megatron-FSDP and Torch FSDP2 are mutually-exclusive.
         if self.dist.use_megatron_fsdp and self.dist.use_torch_fsdp2:

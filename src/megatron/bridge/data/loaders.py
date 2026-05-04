@@ -324,6 +324,34 @@ def build_train_valid_test_data_loaders(
         if cfg.validation.eval_micro_batch_size is not None
         else cfg.train.micro_batch_size
     )
+
+    # HACK: when eval_global_batch_size < eval_mbs * dp_size, the sampler can't fill all DP ranks
+    # with unique samples. Alias physical DP ranks modulo `unique_dp = eval_gbs // eval_mbs` so
+    # ranks r and r+unique_dp iterate identical indices — i.e., each unique sample is replicated
+    # (dp_size // unique_dp) times across DP. Combined with the K-replication wrapper in eval.py
+    # (which re-emits each microbatch K times to satisfy PP/VP min num_microbatches), the mean
+    # validation loss is the exact mean over the eval_gbs unique samples per eval iter.
+    eval_dp_rank, eval_dp_size = dp_rank, dp_size
+    if eval_gbs < eval_mbs * dp_size:
+        if eval_gbs % eval_mbs != 0:
+            raise ValueError(
+                f"eval_global_batch_size ({eval_gbs}) must be divisible by "
+                f"eval_micro_batch_size ({eval_mbs}) for cross-DP sample replication."
+            )
+        unique_dp = eval_gbs // eval_mbs
+        if dp_size % unique_dp != 0:
+            raise ValueError(
+                f"data_parallel_size ({dp_size}) must be divisible by "
+                f"eval_global_batch_size // eval_micro_batch_size ({unique_dp}) "
+                f"for cross-DP sample replication."
+            )
+        eval_dp_rank, eval_dp_size = dp_rank % unique_dp, unique_dp
+        print_rank_0(
+            f"[eval] eval_global_batch_size ({eval_gbs}) < eval_micro_batch_size * "
+            f"data_parallel_size ({eval_mbs} * {dp_size}); replicating each unique sample "
+            f"{dp_size // unique_dp}x across DP (logical_dp_size={unique_dp})."
+        )
+
     if cfg.validation.skip_train and cfg.validation.eval_iters > 0:
         valid_dataloader = build_pretraining_data_loader(
             valid_ds,
