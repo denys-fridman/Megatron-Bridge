@@ -60,6 +60,7 @@ class LlamaBridge(MegatronModelBridge):
 
         # Llama-specific Megatron defaults
         provider.normalization = "RMSNorm"
+        provider.fused_residual_rmsnorm = True  # fuse residual add into RMSNorm kernel
         provider.gated_linear_unit = True
         provider.hidden_dropout = 0.0
         provider.bias_activation_fusion = True
