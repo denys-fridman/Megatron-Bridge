@@ -738,6 +738,11 @@ class TrainingConfig:
     skip_train: bool = False
     """If set, bypass the training loop, optionally do evaluation for validation/test, and exit."""
 
+    start_eval_at_iter: Optional[int] = None
+    """If set, evaluation will only start after this iteration number. Useful for skipping
+    evaluation during early training iterations. If not set, evaluation starts from the
+    first eval_interval."""
+
     def finalize(self) -> None:
         """Validate training mode specification and calculate train_iters from train_samples if needed."""
         has_train_iters = self.train_iters is not None
